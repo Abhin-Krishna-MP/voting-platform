@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # Your Next.js Application
+  app:
+    build: .
+    container_name: voting_app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/voting_db
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=changeme123
+      - GOOGLE_CLIENT_ID=YOUR_GOOGLE_ID_HERE      # <--- Change this back to placeholder
+      - GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_SECRET_HERE  # <--- Change this back to placeholder
+      - LINKEDIN_CLIENT_ID=YOUR_LINKEDIN_ID_HERE    # <--- Change this back to placeholder
+      - LINKEDIN_CLIENT_SECRET=YOUR_LINKEDIN_SECRET_HERE # <--- Change this back to placeholder
+  # The Database
+  mongo:
+    image: mongo
+    container_name: voting_mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
