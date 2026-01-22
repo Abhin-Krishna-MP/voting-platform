@@ -8,14 +8,13 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
       - MONGODB_URI=mongodb://mongo:27017/voting_db
-      - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=changeme123
-      - GOOGLE_CLIENT_ID=YOUR_GOOGLE_ID_HERE      # <--- Change this back to placeholder
-      - GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_SECRET_HERE  # <--- Change this back to placeholder
-      - LINKEDIN_CLIENT_ID=YOUR_LINKEDIN_ID_HERE    # <--- Change this back to placeholder
-      - LINKEDIN_CLIENT_SECRET=YOUR_LINKEDIN_SECRET_HERE # <--- Change this back to placeholder
+    depends_on:
+      - mongo
+
   # The Database
   mongo:
     image: mongo
