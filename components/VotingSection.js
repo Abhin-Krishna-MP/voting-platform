@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Linkedin, CheckCircle, ShieldAlert, Lock, Search, Download, BarChart3 } from "lucide-react";
+import { Linkedin, CheckCircle, ShieldAlert, Lock, Search, Download, BarChart3, Mail } from "lucide-react";
 import confetti from "canvas-confetti";
 import LoginHelpModal from "./LoginHelpModal";
 import UserAvatar from "./UserAvatar";
@@ -14,6 +14,16 @@ export default function VotingSection({ candidates, session, votersList = [] }) 
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [showHelp, setShowHelp] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Email/Password login state
+  const [showEmailLogin, setShowEmailLogin] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [authError, setAuthError] = useState(false);
 
   // --- Filter Voters Logic ---
   const filteredVoters = votersList.filter(voter => 
@@ -38,8 +48,299 @@ export default function VotingSection({ candidates, session, votersList = [] }) 
     a.click();
   };
 
+  // --- Email/Password Authentication Handlers ---
+  const handleEmailLogin = async (e) => {
+    e.preventDefault();
+    setAuthMessage("");
+    setAuthError(false);
+    setLoading(true);
+
+    const result = await signIn("credentials", {
+      redirect: false,
+      email,
+      password,
+    });
+
+    setLoading(false);
+
+    if (result?.error) {
+      setAuthError(true);
+      setAuthMessage(result.error);
+    } else {
+      router.refresh();
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setAuthMessage("");
+    setAuthError(false);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await res.json();
+      setLoading(false);
+
+      if (res.ok) {
+        setAuthError(false);
+        setAuthMessage(data.message);
+        setTimeout(() => {
+          setShowRegister(false);
+          setShowEmailLogin(true);
+          setAuthMessage("");
+        }, 2000);
+      } else {
+        setAuthError(true);
+        setAuthMessage(data.message);
+      }
+    } catch (error) {
+      setLoading(false);
+      setAuthError(true);
+      setAuthMessage("An error occurred. Please try again.");
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setAuthMessage("");
+    setAuthError(false);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+      setLoading(false);
+      setAuthError(false);
+      setAuthMessage(data.message);
+    } catch (error) {
+      setLoading(false);
+      setAuthError(true);
+      setAuthMessage("An error occurred. Please try again.");
+    }
+  };
+
   // --- 1. Login Screen ---
   if (!session) {
+    // Register Form
+    if (showRegister) {
+      return (
+        <div className="bg-white/80 backdrop-blur-md p-10 rounded-3xl shadow-xl text-center border border-white/20 max-w-lg mx-auto mt-10">
+          <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Mail className="text-blue-600" size={32} />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">Create Account</h2>
+          <p className="text-gray-500 mb-8">Register to participate in voting</p>
+          
+          <form onSubmit={handleRegister} className="space-y-4">
+            <input
+              type="text"
+              placeholder="Full Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+              required
+            />
+            <input
+              type="email"
+              placeholder="Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+              required
+            />
+            <input
+              type="password"
+              placeholder="Password (min 6 characters)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+              required
+              minLength={6}
+            />
+            
+            {authMessage && (
+              <div className={`p-3 rounded-xl text-sm ${authError ? "bg-red-50 text-red-800" : "bg-green-50 text-green-800"}`}>
+                {authMessage}
+              </div>
+            )}
+            
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 font-medium transition-all shadow-sm disabled:opacity-50"
+            >
+              {loading ? "Creating Account..." : "Create Account"}
+            </button>
+          </form>
+          
+          <button
+            onClick={() => {
+              setShowRegister(false);
+              setAuthMessage("");
+              setAuthError(false);
+            }}
+            className="mt-4 text-sm text-gray-600 hover:text-gray-900"
+          >
+            Already have an account? <span className="font-semibold underline">Sign In</span>
+          </button>
+        </div>
+      );
+    }
+
+    // Forgot Password Form
+    if (showForgotPassword) {
+      return (
+        <div className="bg-white/80 backdrop-blur-md p-10 rounded-3xl shadow-xl text-center border border-white/20 max-w-lg mx-auto mt-10">
+          <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Lock className="text-blue-600" size={32} />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">Forgot Password</h2>
+          <p className="text-gray-500 mb-8">Enter your email to receive a reset link</p>
+          
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <input
+              type="email"
+              placeholder="Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+              required
+            />
+            
+            {authMessage && (
+              <div className={`p-3 rounded-xl text-sm ${authError ? "bg-red-50 text-red-800" : "bg-blue-50 text-blue-800"}`}>
+                {authMessage}
+              </div>
+            )}
+            
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 font-medium transition-all shadow-sm disabled:opacity-50"
+            >
+              {loading ? "Sending..." : "Send Reset Link"}
+            </button>
+          </form>
+          
+          <button
+            onClick={() => {
+              setShowForgotPassword(false);
+              setShowEmailLogin(true);
+              setAuthMessage("");
+              setAuthError(false);
+            }}
+            className="mt-4 text-sm text-gray-600 hover:text-gray-900"
+          >
+            Remember your password? <span className="font-semibold underline">Sign In</span>
+          </button>
+        </div>
+      );
+    }
+
+    // Email/Password Login Form
+    if (showEmailLogin) {
+      return (
+        <div className="bg-white/80 backdrop-blur-md p-10 rounded-3xl shadow-xl text-center border border-white/20 max-w-lg mx-auto mt-10">
+          <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Mail className="text-blue-600" size={32} />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">Sign In</h2>
+          <p className="text-gray-500 mb-8">Enter your credentials to continue</p>
+          
+          <form onSubmit={handleEmailLogin} className="space-y-4">
+            <input
+              type="email"
+              placeholder="Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+              required
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+              required
+            />
+            
+            {authMessage && (
+              <div className="p-3 rounded-xl text-sm bg-red-50 text-red-800">
+                {authMessage}
+              </div>
+            )}
+            
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 font-medium transition-all shadow-sm disabled:opacity-50"
+            >
+              {loading ? "Signing In..." : "Sign In"}
+            </button>
+          </form>
+          
+          <button
+            onClick={() => {
+              setShowForgotPassword(true);
+              setShowEmailLogin(false);
+              setAuthMessage("");
+              setAuthError(false);
+            }}
+            className="mt-4 text-sm text-blue-600 hover:text-blue-800 underline"
+          >
+            Forgot Password?
+          </button>
+
+          <div className="my-6 flex items-center">
+            <div className="flex-1 border-t border-gray-300"></div>
+            <span className="px-4 text-sm text-gray-500">or</span>
+            <div className="flex-1 border-t border-gray-300"></div>
+          </div>
+          
+          <div className="space-y-3">
+            <button
+              onClick={() => signIn("google")}
+              className="w-full bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-50 font-medium transition-all flex items-center justify-center gap-2 shadow-sm"
+            >
+              <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />
+              Continue with Google
+            </button>
+            <button
+              onClick={() => signIn("linkedin")}
+              className="w-full bg-[#0077b5] text-white px-6 py-3 rounded-xl hover:bg-[#006097] font-medium transition-all flex items-center justify-center gap-2 shadow-sm"
+            >
+              <Linkedin size={20} />
+              Continue with LinkedIn
+            </button>
+          </div>
+          
+          <button
+            onClick={() => {
+              setShowEmailLogin(false);
+              setAuthMessage("");
+              setAuthError(false);
+            }}
+            className="mt-6 text-sm text-gray-600 hover:text-gray-900"
+          >
+            Don't have an account? <span className="font-semibold underline">Register</span>
+          </button>
+        </div>
+      );
+    }
+
+    // Default Login Screen with Provider Options
     return (
       <div className="bg-white/80 backdrop-blur-md p-10 rounded-3xl shadow-xl text-center border border-white/20 max-w-lg mx-auto mt-10">
         <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -63,9 +364,31 @@ export default function VotingSection({ candidates, session, votersList = [] }) 
             <Linkedin size={20} />
             Continue with LinkedIn
           </button>
+
+          <div className="my-6 flex items-center">
+            <div className="flex-1 border-t border-gray-300"></div>
+            <span className="px-4 text-sm text-gray-500">or</span>
+            <div className="flex-1 border-t border-gray-300"></div>
+          </div>
+
+          <button
+            onClick={() => setShowEmailLogin(true)}
+            className="w-full bg-gray-800 text-white px-6 py-3 rounded-xl hover:bg-gray-900 font-medium transition-all flex items-center justify-center gap-2 shadow-sm"
+          >
+            <Mail size={20} />
+            Continue with Email
+          </button>
         </div>
-        <button onClick={() => setShowHelp(true)} className="mt-6 text-sm text-gray-400 hover:text-gray-600 underline">
-          Forgot Password / Trouble logging in?
+        
+        <button
+          onClick={() => setShowRegister(true)}
+          className="mt-6 text-sm text-gray-600 hover:text-gray-900"
+        >
+          Don't have an account? <span className="font-semibold underline">Create one</span>
+        </button>
+
+        <button onClick={() => setShowHelp(true)} className="mt-4 text-sm text-gray-400 hover:text-gray-600 underline">
+          Need help logging in?
         </button>
         <LoginHelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
       </div>

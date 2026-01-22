@@ -16,8 +16,13 @@ export async function POST(req) {
 
   await connectDB();
 
-  // 2. Fetch fresh user data to verify they haven't voted yet
-  const user = await User.findOne({ email: session.user.email });
+  // 2. Fetch fresh user data using normalized email to prevent duplicate voting
+  const normalizedEmail = User.normalizeEmail(session.user.email);
+  const user = await User.findOne({ normalizedEmail });
+
+  if (!user) {
+    return NextResponse.json({ message: "User not found" }, { status: 404 });
+  }
 
   if (user.hasVoted) {
     return NextResponse.json({ message: "You have already voted!" }, { status: 400 });

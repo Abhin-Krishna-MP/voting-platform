@@ -19,9 +19,10 @@ export async function POST(req) {
 
   await connectDB();
   
-  // Update the user
+  // Update the user using normalized email
+  const normalizedEmail = User.normalizeEmail(session.user.email);
   await User.findOneAndUpdate(
-    { email: session.user.email },
+    { normalizedEmail },
     { linkedinProfile: linkedinUrl }
   );
 
